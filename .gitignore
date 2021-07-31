@@ -1,0 +1,8 @@
+*.pyc
+*~
+/.vscode
+__pycache__
+myvenv
+.idea
+.env
+*.csv
