@@ -5,69 +5,9 @@ import attr
 from _base import APIClientBase
 from requests import Response
 import schemas
-
-
-@attr.s
-class DatabaseAPI:
-    _client: APIClientBase = attr.ib(repr=False)
-
-    def list_databases(self) -> Response:
-        end_point = '/databases'
-
-        return self._client.get(endpoint=end_point)
-
-    def retrieve_databases(self,
-                           database_id: str) -> Response:
-        end_point = f'/databases/{database_id}'
-
-        return self._client.get(endpoint=end_point)
-
-    def filter_database(self,
-                        database_id: str,
-                        body) -> Response:
-        end_point = f'/databases/{database_id}/query'
-
-        return self._client.post(endpoint=end_point, body=body)
-
-    def create_database(self, body) -> Response:
-        end_point = '/databases'
-
-        return self._client.post(endpoint=end_point, body=body)
-
-
-@attr.s
-class PageAPI:
-    _client: APIClientBase = attr.ib(repr=False)
-
-    def retrieve_page(self, page_id: str) -> Response:
-        end_point = f'/pages/{page_id}'
-
-        return self._client.get(end_point)
-
-    def create_page(self, body) -> Response:
-        end_point = '/pages'
-
-        return self._client.post(end_point, body=body)
-
-    def update_page(self, page_id, body) -> Response:
-        end_point = f'/pages/{page_id}'
-
-        return self._client.patch(endpoint=end_point, body=body)
-
-
-@attr.s
-class BlockAPI:
-    _client: APIClientBase = attr.ib(repr=False)
-
-    def retrieve_block_children(self, page_id, query=None) -> Response:
-        end_point = f'/blocks/{page_id}/children'
-
-        return self._client.get(endpoint=end_point, query=query)
-
-    def append_block_children(self, page_id, body) -> Response:
-        end_point = f'/blocks/{page_id}/children'
-
-        return self._client.patch(end_point, body=body)
+from database import DatabaseAPI
+from page import PageAPI
+from block import BlockAPI
 
 
 @attr.s(auto_attribs=True)
@@ -128,14 +68,14 @@ class NotionClient:
         データベースのタイトルの値をリストにして返します
         """
         property_name_of_title = self.property_name_of_title(database_id)
+        name_and_types = self.database_properties(database_id)
+        property_type = name_and_types.get(property_name_of_title)
+
+        schema = schemas.DatabasePropertyFilter(name=property_name_of_title,
+                                                property_type=property_type)
+        body = schema.text_filter_body(method='is_not_empty', value=True)
         titles = []
         next_cur = None
-        body = {
-            "filter": {
-                "property": property_name_of_title,
-                "text": {'is_not_empty': True},
-            }
-        }
         while True:
             if next_cur:
                 body['start_cursor'] = next_cur
@@ -143,8 +83,7 @@ class NotionClient:
             json_data = self.database.filter_database(database_id=database_id,
                                                       body=body).json()
             for data in json_data['results']:
-                title = data['properties'][property_name_of_title]['title'][0]['text']['content']
-                titles.append(title)
+                titles.append(data['properties'][property_name_of_title]['title'][0]['text']['content'])
 
             if json_data['has_more']:
                 next_cur = json_data['next_cursor']
@@ -152,6 +91,52 @@ class NotionClient:
                 break
 
         return titles
+
+    def list_property_values(self, database_id: str, property_name: str):
+        """
+        データベースのプロパティの値のリストを返します
+        """
+        name_and_types = self.database_properties(database_id)
+        property_type = name_and_types.get(property_name)
+        approved = ["title", "rich_text", "url", "email", "phone"]
+
+        if property_type not in approved:
+            raise ValueError(f'Invalid property type you specified :{property_type}.\n '
+                             f'Allowed type is only "title" or "rich_text" or "url" or "email" or "phone"')
+
+        schema = schemas.DatabasePropertyFilter(name=property_name, property_type=property_type)
+        body = schema.text_filter_body(method='is_not_empty', value=True)
+        next_cur = None
+        values = []
+        while True:
+            if next_cur:
+                body['start_cursor'] = next_cur
+
+            json_data = self.database.filter_database(database_id=database_id,
+                                                      body=body).json()
+            for data in json_data['results']:
+                values.append(data['properties'][property_name][property_type][0]['text']['content'])
+
+            if json_data['has_more']:
+                next_cur = json_data['next_cursor']
+            else:
+                break
+
+        return values
+
+    def date_filter(self, database_id: str, property_name: str,
+                    method: schemas.DateFilterMethod,
+                    value: [str, bool] = None,
+                    start_cursor=None):
+
+        name_and_types = self.database_properties(database_id)
+        property_type = name_and_types.get(property_name)
+        if property_type != 'date':
+            raise ValueError(f'Invalid property type you specified :{property_type}.\n '
+                             f'Allowed type is only "date"')
+        schema = schemas.DatabasePropertyFilter(name=property_name, property_type=property_type)
+        body = schema.date_filter_body(method=method, value=value, start_cursor=start_cursor)
+        return self.database.filter_database(database_id, body)
 
     def create_database(self, title_of_database: str, page_id: str,
                         properties:
@@ -318,11 +303,7 @@ class NotionClient:
     def add_toggle_block_to_page(self,
                                  page_id: str,
                                  parent_content: str,
-                                 children_type
-                                 : Literal[
-                                     'heading_1', 'heading_2', 'heading_3', 'paragraph',
-                                     'to_do', 'numbered_list_item', 'bulleted_list_item'
-                                 ] = None,
+                                 children_type: schemas.BlockObjectType = None,
                                  children_content: list = None):
         """
         ページ内にトグルブロックを作成します

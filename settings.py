@@ -9,3 +9,4 @@ load_dotenv(dotenv_path)
 
 API_KEY = os.environ.get("API_KEY")
 DB_TEST = os.environ.get("DB_TEST")
+DB_BOOKLOG = os.environ.get('DB_BOOKLOG')
