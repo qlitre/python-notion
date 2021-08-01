@@ -114,7 +114,7 @@ class NotionClient:
 
     def database_properties(self, database_id: str) -> dict:
         """
-        データベースのプロパティ名とプロパティのタイプのタプルを辞書にして返します
+        データベースのプロパティ名とプロパティのタイプを辞書にして返します
         """
         name_and_types = {}
         json_data = self.database.retrieve_databases(database_id).json()
