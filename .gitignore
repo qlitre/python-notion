@@ -2,7 +2,7 @@
 *~
 /.vscode
 __pycache__
-myapp/
+myapp
 myvenv
 .idea
 .env

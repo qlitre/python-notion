@@ -15,19 +15,23 @@ class DatabaseAPI:
         return self._client.get(endpoint=end_point)
 
     def retrieve_databases(self,
-                           database_id: str) -> Response:
+                           database_id: str
+                           ) -> Response:
         end_point = f'/databases/{database_id}'
 
         return self._client.get(endpoint=end_point)
 
     def filter_database(self,
                         database_id: str,
-                        body) -> Response:
+                        body: dict
+                        ) -> Response:
         end_point = f'/databases/{database_id}/query'
 
         return self._client.post(endpoint=end_point, body=body)
 
-    def create_database(self, body) -> Response:
+    def create_database(self,
+                        body: dict
+                        ) -> Response:
         end_point = '/databases'
 
         return self._client.post(endpoint=end_point, body=body)

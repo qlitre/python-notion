@@ -34,7 +34,9 @@ class NotionClient:
         """
         return self.database.list_databases()
 
-    def get_database_id(self, database_name: str) -> str:
+    def get_database_id(self,
+                        database_name: str
+                        ) -> str:
         """
         データベースの名前からデータベースIDを特定します
         """
@@ -43,7 +45,9 @@ class NotionClient:
             if database_name == data['title'][0]['text']['content']:
                 return data['id']
 
-    def property_name_of_title(self, database_id: str) -> str:
+    def property_name_of_title(self,
+                               database_id: str
+                               ) -> str:
         """
         データベースのtitleプロパティ名を取得します
         """
@@ -52,7 +56,9 @@ class NotionClient:
             if value.get('type') == 'title':
                 return name
 
-    def database_properties(self, database_id: str) -> dict:
+    def database_properties(self,
+                            database_id: str
+                            ) -> dict:
         """
         データベースのプロパティ名とプロパティのタイプを辞書にして返します
         """
@@ -63,7 +69,9 @@ class NotionClient:
 
         return name_and_types
 
-    def list_titles(self, database_id: str) -> list:
+    def list_titles(self,
+                    database_id: str
+                    ) -> list:
         """
         データベースのタイトルの値をリストにして返します
         """
@@ -71,8 +79,8 @@ class NotionClient:
         name_and_types = self.database_properties(database_id)
         property_type = name_and_types.get(property_name_of_title)
 
-        schema = schemas.DatabasePropertyFilter(name=property_name_of_title,
-                                                property_type=property_type)
+        schema = schemas.FilterObject(name=property_name_of_title,
+                                      property_type=property_type)
         body = schema.text_filter_body(method='is_not_empty', value=True)
         titles = []
         next_cur = None
@@ -92,7 +100,11 @@ class NotionClient:
 
         return titles
 
-    def list_property_values(self, database_id: str, property_name: str):
+    def list_property_values(self,
+                             database_id: str,
+                             property_name: str
+                             ) -> list:
+
         """
         データベースのプロパティの値のリストを返します
         """
@@ -104,7 +116,7 @@ class NotionClient:
             raise ValueError(f'Invalid property type you specified :{property_type}.\n '
                              f'Allowed type is only "title" or "rich_text" or "url" or "email" or "phone"')
 
-        schema = schemas.DatabasePropertyFilter(name=property_name, property_type=property_type)
+        schema = schemas.FilterObject(name=property_name, property_type=property_type)
         body = schema.text_filter_body(method='is_not_empty', value=True)
         next_cur = None
         values = []
@@ -124,27 +136,28 @@ class NotionClient:
 
         return values
 
-    def date_filter(self, database_id: str, property_name: str,
+    def date_filter(self,
+                    database_id: str,
+                    property_name: str,
                     method: schemas.DateFilterMethod,
                     value: [str, bool] = None,
-                    start_cursor=None):
+                    start_cursor=None
+                    ) -> Response:
 
         name_and_types = self.database_properties(database_id)
         property_type = name_and_types.get(property_name)
         if property_type != 'date':
             raise ValueError(f'Invalid property type you specified :{property_type}.\n '
                              f'Allowed type is only "date"')
-        schema = schemas.DatabasePropertyFilter(name=property_name, property_type=property_type)
+        schema = schemas.FilterObject(name=property_name, property_type=property_type)
         body = schema.date_filter_body(method=method, value=value, start_cursor=start_cursor)
         return self.database.filter_database(database_id, body)
 
-    def create_database(self, title_of_database: str, page_id: str,
-                        properties:
-                        Dict[str, Literal['title', 'rich_text', 'number', 'select',
-                                          'multi_select', 'date', 'people', 'files',
-                                          'checkbox', 'url', 'email', 'phone_number',
-                                          'formula', 'relation', 'rollup', 'created_time',
-                                          'created_by', 'last_edited_time', 'last_edited_by']]) -> Response:
+    def create_database(self, title_of_database: str,
+                        page_id: str,
+                        properties: Dict[str, schemas.PropertyType]
+                        ) -> Response:
+
         """
         ページ内にデータベースを作成します。
         Parameters
@@ -154,6 +167,7 @@ class NotionClient:
         properties:{プロパティ名：プロパティタイプ}の辞書で指定します。
             ex. {'タイトル':'title', '詳細':'rich_text', 'tags':'multi_select', '期限':'date', 'done!':'checkbox'}
         """
+
         body: Dict[str, Any] = {
             "parent": {
                 "type": "page_id",
@@ -172,10 +186,17 @@ class NotionClient:
 
         return self.database.create_database(body=body)
 
-    def retrieve_a_page(self, page_id: str) -> Response:
+    def retrieve_a_page(self,
+                        page_id: str
+                        ) -> Response:
+
         return self.page.retrieve_page(page_id=page_id)
 
-    def add_page_to_database(self, database_id: str, prop_name_and_value: dict) -> Response:
+    def add_page_to_database(self,
+                             database_id: str,
+                             prop_name_and_value: dict
+                             ) -> Response:
+
         """
         データベースにページを追加します
 
@@ -199,32 +220,14 @@ class NotionClient:
 
         for name, value in prop_name_and_value.items():
             prop_type = name_and_types.get(name)
-            if prop_type == 'date':
-                if ',' in value:
-                    part = {"date": {"start": value.split(',')[0],
-                                     "end": value.split(',')[1]}}
-                else:
-                    part = {"date": {"start": value}}
+            obj = schemas.PropertyValueObject(name=name, property_type=prop_type)
+            body['properties'].update(obj.property_value(value))
 
-            elif prop_type == 'multi_select':
-                if ',' in value:
-                    part = {"multi_select": [{"name": val} for val in value.split(',')]}
-                else:
-                    part = {"multi_select": [{"name": value}]}
-
-            elif prop_type == 'select':
-                part = {"select": {"name": value}}
-
-            elif prop_type == 'title' or prop_type == 'rich_text':
-                part = {prop_type: [{'text': {'content': value}}]}
-
-            else:
-                part = {prop_type: value}
-
-            body["properties"].setdefault(name, part)
         return self.page.create_page(body)
 
-    def retrieve_block_children(self, page_id: str) -> Response:
+    def retrieve_block_children(self,
+                                page_id: str
+                                ) -> Response:
         """
         ページ内のblock情報を返します
         """
@@ -245,7 +248,8 @@ class NotionClient:
 
     def add_paragraph_to_page(self,
                               page_id: str,
-                              content: str) -> Response:
+                              content: str
+                              ) -> Response:
         """
         ページ内にパラグラフを書きこみます
         """
@@ -259,7 +263,8 @@ class NotionClient:
     def add_todolist_to_page(self,
                              page_id: str,
                              list_content: list,
-                             checked: bool = False) -> Response:
+                             checked: bool = False
+                             ) -> Response:
         """
         ページ内にtodolistブロックを書きこみます。
         デフォルトは未チェックです。
@@ -272,8 +277,10 @@ class NotionClient:
         }
         return self.block.append_block_children(page_id, body)
 
-    def add_numbered_list_item_to_page(self, page_id: str,
-                                       list_content: list):
+    def add_numbered_list_item_to_page(self,
+                                       page_id: str,
+                                       list_content: list
+                                       ) -> Response:
         """
         ページ内にナンバーリストを書きこみます
         """
@@ -286,8 +293,10 @@ class NotionClient:
 
         return self.block.append_block_children(page_id, body)
 
-    def add_bulleted_list_item_to_page(self, page_id: str,
-                                       list_content: list) -> Response:
+    def add_bulleted_list_item_to_page(self,
+                                       page_id: str,
+                                       list_content: list
+                                       ) -> Response:
         """
         ページ内にバレットリストを書きこみます。
         """
@@ -304,7 +313,8 @@ class NotionClient:
                                  page_id: str,
                                  parent_content: str,
                                  children_type: schemas.BlockObjectType = None,
-                                 children_content: list = None):
+                                 children_content: list = None
+                                 ) -> Response:
         """
         ページ内にトグルブロックを作成します
         """
