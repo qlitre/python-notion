@@ -14,13 +14,15 @@ api_key = 'your api key'
 client = NotionClient(api_key)
 ```
 
-### Get Database ID
+### Get Database ID by Database Name
 
 ```python
 database_id = client.get_database_id(database_name='ToDo List')
 ```
 
 ### Get Properties of database
+
+return:dict {property name: property type}
 
 ```python
 database_properties = client.database_properties(database_id=database_id)
@@ -50,7 +52,6 @@ client.add_page_to_database(database_id=database_id,
 
 
 ### add content to page
-
 
 ```python
 add_items = {'Name': 'ページ内書き込みテスト'}
