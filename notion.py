@@ -46,6 +46,10 @@ class NotionClient:
             if database_name == data['title'][0]['text']['content']:
                 return data['id']
 
+    def retrieve_database(self,
+                          database_id: str) -> Response:
+        return self.database.retrieve_databases(database_id)
+
     def property_name_of_title(self,
                                database_id: str
                                ) -> str:
@@ -70,6 +74,33 @@ class NotionClient:
 
         return name_and_types
 
+    def list_database_page_object(self,
+                                  database_id: str) -> list:
+        """
+        データベースのページオブジェクトをリストにして全て返します
+        """
+        property_name_of_title = self.property_name_of_title(database_id)
+        obj = schemas.FilterObject(name=property_name_of_title,
+                                   property_type='title')
+        body = obj.text_filter_body(method='is_not_empty', value=True)
+        obj_list = []
+        next_cur = None
+        while True:
+            if next_cur:
+                body['start_cursor'] = next_cur
+
+            json_data = self.database.filter_database(database_id=database_id,
+                                                      body=body).json()
+            for data in json_data['results']:
+                obj_list.append(data)
+
+            if json_data['has_more']:
+                next_cur = json_data['next_cursor']
+            else:
+                break
+
+        return obj_list
+
     def list_titles(self,
                     database_id: str
                     ) -> list:
@@ -77,11 +108,8 @@ class NotionClient:
         データベースのタイトルの値をリストにして返します
         """
         property_name_of_title = self.property_name_of_title(database_id)
-        name_and_types = self.database_properties(database_id)
-        property_type = name_and_types.get(property_name_of_title)
-
         obj = schemas.FilterObject(name=property_name_of_title,
-                                   property_type=property_type)
+                                   property_type='title')
         body = obj.text_filter_body(method='is_not_empty', value=True)
         titles = []
         next_cur = None
@@ -107,7 +135,7 @@ class NotionClient:
                              ) -> list:
 
         """
-        データベースのプロパティの値のリストを返します
+        データベースの指定したプロパティの値のリストを返します
         """
         name_and_types = self.database_properties(database_id)
         property_type = name_and_types.get(property_name)
@@ -225,6 +253,26 @@ class NotionClient:
             body['properties'].update(obj.property_value(value))
 
         return self.page.create_page(body)
+
+    def update_page_property(self,
+                             page_id: str,
+                             prop_name_and_value: dict) -> Response:
+        """
+        指定したページのプロパティの値を更新します
+        """
+        res = self.retrieve_a_page(page_id).json()
+        database_id = res['parent']['database_id']
+        body: Dict[str, Any] = {
+            "properties": {
+            }
+        }
+        name_and_types = self.database_properties(database_id)
+        for name, value in prop_name_and_value.items():
+            prop_type = name_and_types.get(name)
+            obj = schemas.PropertyValueObject(name=name, property_type=prop_type)
+            body['properties'].update(obj.property_value(value))
+
+        return self.page.update_page(page_id, body)
 
     def retrieve_block_children(self,
                                 page_id: str
