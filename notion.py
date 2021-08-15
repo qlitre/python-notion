@@ -8,6 +8,7 @@ import schemas
 from database import DatabaseAPI
 from page import PageAPI
 from block import BlockAPI
+import math
 
 
 @attr.s(auto_attribs=True)
@@ -79,9 +80,9 @@ class NotionClient:
         name_and_types = self.database_properties(database_id)
         property_type = name_and_types.get(property_name_of_title)
 
-        schema = schemas.FilterObject(name=property_name_of_title,
-                                      property_type=property_type)
-        body = schema.text_filter_body(method='is_not_empty', value=True)
+        obj = schemas.FilterObject(name=property_name_of_title,
+                                   property_type=property_type)
+        body = obj.text_filter_body(method='is_not_empty', value=True)
         titles = []
         next_cur = None
         while True:
@@ -114,7 +115,7 @@ class NotionClient:
 
         if property_type not in approved:
             raise ValueError(f'Invalid property type you specified :{property_type}.\n '
-                             f'Allowed type is only "title" or "rich_text" or "url" or "email" or "phone"')
+                             f'Allowed type is only "title" or "rich_text" or "url" or "email" or "phone_number"')
 
         schema = schemas.FilterObject(name=property_name, property_type=property_type)
         body = schema.text_filter_body(method='is_not_empty', value=True)
@@ -252,13 +253,38 @@ class NotionClient:
                               ) -> Response:
         """
         ページ内にパラグラフを書きこみます
+        2000文字までしか書きこめないので、分岐処理をして全て書き込みます。
         """
+        if len(content) < 2000:
+            body = {
+                "children": [schemas.BlockObjects('paragraph').item_block(content)]
+            }
+            return self.block.append_block_children(page_id, body)
 
-        body = {
-            "children": [schemas.BlockObjects('paragraph').item_block(content)]
-        }
+        else:
+            n = 0
+            first = True
+            for i in range(1, math.ceil(len(content) / 1999)):
+                n = 1999 * i
+                if first:
+                    first = False
+                    paragraph = content[:n]
+                    body = {
+                        "children": [schemas.BlockObjects('paragraph').item_block(paragraph)]
+                    }
+                    self.block.append_block_children(page_id, body)
+                else:
+                    paragraph = content[(i - 1) * 1999:n]
+                    body = {
+                        "children": [schemas.BlockObjects('paragraph').item_block(paragraph)]
+                    }
+                    self.block.append_block_children(page_id, body)
 
-        return self.block.append_block_children(page_id, body)
+            paragraph = content[n:]
+            body = {
+                "children": [schemas.BlockObjects('paragraph').item_block(paragraph)]
+            }
+            return self.block.append_block_children(page_id, body)
 
     def add_todolist_to_page(self,
                              page_id: str,
