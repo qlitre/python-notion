@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Literal, Dict, Any
 import attr
-from _base import APIClientBase
+from notion._base import APIClientBase
 from requests import Response
-import schemas
-from database import DatabaseAPI
-from page import PageAPI
-from block import BlockAPI
+from notion import schemas
+from notion.database import DatabaseAPI
+from notion.page import PageAPI
+from notion.block import BlockAPI
 import math
 
 

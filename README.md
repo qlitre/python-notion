@@ -8,7 +8,7 @@ A wrapper around the Notion API written in Python.
 ## Usage
 
 ```python
-from notion import NotionClient
+from notion.notion import NotionClient
 
 api_key = 'your api key'
 client = NotionClient(api_key)

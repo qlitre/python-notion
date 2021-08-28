@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import attr
-from _base import APIClientBase
+from notion._base import APIClientBase
 from requests import Response
 
 
