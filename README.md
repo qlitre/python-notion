@@ -1,28 +1,26 @@
-# python-notion
+# 概要
 
-A wrapper around the Notion API written in Python.
+Notion APIをPythonで使える簡易ラッパーです
 
-## Example Database
+## つかいかた
+
+以下のようなサンプルデータベースを例にします。
 ![python-notion1](https://user-images.githubusercontent.com/77523162/127741332-e732a88d-d887-4e94-948d-bd4d19b2ec7e.png)
 
-## Usage
-
 ```python
-from notion.notion import NotionClient
+from notion import NotionClient
 
 api_key = 'your api key'
 client = NotionClient(api_key)
 ```
 
-### Get Database ID by Database Name
+### データベース名からデータベースIDを取得
 
 ```python
 database_id = client.get_database_id(database_name='ToDo List')
 ```
 
-### Get Properties of database
-
-return:dict {property name: property type}
+### データベースのプロパティ情報を取得
 
 ```python
 database_properties = client.database_properties(database_id=database_id)
@@ -32,14 +30,16 @@ print(database_properties)
 {'Tags': 'multi_select', 'Due': 'date', 'Done!': 'checkbox', 'Name': 'title'}
 ```
 
-### Add page to database
+### データベースにページを加える
+
+`{プロパティ名:値}`の辞書形式で指定します。
 
 ```python
 add_items = {'Name': '部屋の掃除', 'Tags': '家事', 'Due': '2021-08-01', 'Done!': False}
 client.add_page_to_database(database_id=database_id, prop_name_and_value=add_items)
 ```
 
-if multi values:
+値が複数ある場合はカンマ区切りで指定します。
 
 ```python
 add_items = {'Name': 'Pythonブログの更新', 'Tags': '趣味,プログラミング',
@@ -51,7 +51,7 @@ client.add_page_to_database(database_id=database_id,
 ![python-notion2](https://user-images.githubusercontent.com/77523162/127741330-a8d5064c-d827-477e-9e0e-d45e0940a2e8.png)
 
 
-### add content to page
+### ページ内に書きこむ
 
 ```python
 add_items = {'Name': 'ページ内書き込みテスト'}
