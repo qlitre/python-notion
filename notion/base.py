@@ -13,7 +13,7 @@ class APIClientBase:
 
         return {"Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
-                "Notion-Version": "2021-05-13"}
+                "Notion-Version": "2022-02-22"}
 
     def make_request(self, endpoint: str,
                      method: Literal["GET", "POST", "PATCH", "DELETE", "PUT"],

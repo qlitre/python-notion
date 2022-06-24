@@ -250,7 +250,7 @@ class FilterObject:
                          start_cursor: str = None
                          ) -> dict:
 
-        return self.base_body('text', method, value, start_cursor)
+        return self.base_body('rich_text', method, value, start_cursor)
 
     def number_filter_body(self,
                            method: NumberFilterMethod,
@@ -306,7 +306,7 @@ class BlockObjects:
             "object": "block",
             "type": self.type,
             self.type: {
-                "text": [
+                "rich_text": [
                     {"type": "text", "text": {"content": content}}
                 ]
             }

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Literal, Dict, Any
 import attr
-from notion._base import APIClientBase
+from notion.base import APIClientBase
 from requests import Response
 from notion import schemas
 from notion.database import DatabaseAPI
 from notion.page import PageAPI
 from notion.block import BlockAPI
+from notion.search import SearchAPI
 import math
 
 
@@ -20,6 +21,7 @@ class NotionClient:
     database: DatabaseAPI = attr.ib(init=False, repr=False)
     page: PageAPI = attr.ib(init=False, repr=False)
     block: BlockAPI = attr.ib(init=False, repr=False)
+    search: SearchAPI = attr.ib(init=False, repr=False)
 
     def __attrs_post_init__(self):
         self.raw: APIClientBase = APIClientBase(
@@ -28,12 +30,7 @@ class NotionClient:
         self.database: DatabaseAPI = DatabaseAPI(self.raw)
         self.page: PageAPI = PageAPI(self.raw)
         self.block: BlockAPI = BlockAPI(self.raw)
-
-    def list_databases(self) -> Response:
-        """
-        データベース情報を返します
-        """
-        return self.database.list_databases()
+        self.search: SearchAPI = SearchAPI(self.raw)
 
     def get_database_id(self,
                         database_name: str
@@ -41,10 +38,23 @@ class NotionClient:
         """
         データベースの名前からデータベースIDを特定します
         """
-        json_data = self.database.list_databases().json()
-        for data in json_data['results']:
-            if database_name == data['title'][0]['text']['content']:
-                return data['id']
+        next_cur = None
+        while True:
+            if next_cur:
+                json_data = self.search.search(object_type='database', start_cursor=next_cur).json()
+            else:
+                json_data = self.search.search(object_type='database').json()
+
+            for data in json_data['results']:
+                if data['title']:
+                    if database_name == data['title'][0]['text']['content']:
+                        return data['id']
+
+            if json_data['has_more']:
+                next_cur = json_data['next_cursor']
+            else:
+                raise ValueError(
+                    f'searched the database with the specified name:{database_name} but could not find a match')
 
     def retrieve_database(self,
                           database_id: str) -> Response:
@@ -133,7 +143,6 @@ class NotionClient:
                              database_id: str,
                              property_name: str
                              ) -> list:
-
         """
         データベースの指定したプロパティの値のリストを返します
         """
@@ -172,7 +181,6 @@ class NotionClient:
                     value: [str, bool] = None,
                     start_cursor=None
                     ) -> Response:
-
         name_and_types = self.database_properties(database_id)
         property_type = name_and_types.get(property_name)
         if property_type != 'date':
@@ -186,7 +194,6 @@ class NotionClient:
                         page_id: str,
                         properties: Dict[str, schemas.PropertyType]
                         ) -> Response:
-
         """
         ページ内にデータベースを作成します。
         Parameters
@@ -218,14 +225,12 @@ class NotionClient:
     def retrieve_a_page(self,
                         page_id: str
                         ) -> Response:
-
         return self.page.retrieve_page(page_id=page_id)
 
     def add_page_to_database(self,
                              database_id: str,
                              prop_name_and_value: dict
                              ) -> Response:
-
         """
         データベースにページを追加します
 
@@ -246,6 +251,18 @@ class NotionClient:
         }
 
         name_and_types = self.database_properties(database_id)
+        # 整合性のチェック
+        error_list = []
+        prop_name_exists = name_and_types.keys()
+        for prop_name_specified in prop_name_and_value.keys():
+            if prop_name_specified not in prop_name_exists:
+                error_list.append(prop_name_specified)
+
+        if error_list:
+            error_prop_names = ','.join(error_list)
+            raise ValueError(
+                f'Cannot add page object because the specified property name:{error_prop_names} '
+                f'does not exist in the database')
 
         for name, value in prop_name_and_value.items():
             prop_type = name_and_types.get(name)

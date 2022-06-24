@@ -1,1 +1,1 @@
-from notion._notion import NotionClient
+from notion.notion import NotionClient
