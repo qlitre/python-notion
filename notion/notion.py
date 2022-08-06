@@ -77,12 +77,18 @@ class NotionClient:
         """
         データベースのプロパティ名とプロパティのタイプを辞書にして返します
         """
-        name_and_types = {}
+        properties = {}
         json_data = self.database.retrieve_databases(database_id).json()
         for name, value in json_data['properties'].items():
-            name_and_types[name] = value.get('type')
+            properties[name] = {'id': value.get('id'),
+                                'type': value.get('type')
+                                }
 
-        return name_and_types
+        return properties
+
+    def get_page_ids_in_database(self, database_id: str):
+        obj_page_list = self.list_database_page_object(database_id)
+        return [obj['id'] for obj in obj_page_list]
 
     def list_database_page_object(self,
                                   database_id: str) -> list:
@@ -118,59 +124,41 @@ class NotionClient:
         データベースのタイトルの値をリストにして返します
         """
         property_name_of_title = self.property_name_of_title(database_id)
-        obj = schemas.FilterObject(name=property_name_of_title,
-                                   property_type='title')
-        body = obj.text_filter_body(method='is_not_empty', value=True)
+        properties = self.database_properties(database_id)
+        prop_id = properties[property_name_of_title]['id']
+        page_ids = self.get_page_ids_in_database(database_id)
         titles = []
-        next_cur = None
-        while True:
-            if next_cur:
-                body['start_cursor'] = next_cur
-
-            json_data = self.database.filter_database(database_id=database_id,
-                                                      body=body).json()
-            for data in json_data['results']:
-                titles.append(data['properties'][property_name_of_title]['title'][0]['text']['content'])
-
-            if json_data['has_more']:
-                next_cur = json_data['next_cursor']
-            else:
-                break
+        for page_id in page_ids:
+            res = self.page.retrieve_page_property_item(page_id, prop_id).json()
+            result = res['results'][0]
+            titles.append(result['title']['text']['content'])
 
         return titles
 
+    # todo need fix
+    """
+    #データベースの指定したプロパティの値のリストを返します
     def list_property_values(self,
                              database_id: str,
                              property_name: str
                              ) -> list:
-        """
-        データベースの指定したプロパティの値のリストを返します
-        """
-        name_and_types = self.database_properties(database_id)
-        property_type = name_and_types.get(property_name)
-        approved = ["title", "rich_text", "url", "email", "phone"]
 
-        if property_type not in approved:
+        properties = self.database_properties(database_id)
+        property_type = properties.get(property_name).get('type')
+        approved_property_type = ["title", "rich_text", "url", "email", "phone"]
+        if property_type not in approved_property_type:
             raise ValueError(f'Invalid property type you specified :{property_type}.\n '
                              f'Allowed type is only "title" or "rich_text" or "url" or "email" or "phone_number"')
 
-        schema = schemas.FilterObject(name=property_name, property_type=property_type)
-        body = schema.text_filter_body(method='is_not_empty', value=True)
-        next_cur = None
+        prop_id = properties.get(property_name).get('id')
+        page_ids = self.get_page_ids_in_database(database_id)
         values = []
-        while True:
-            if next_cur:
-                body['start_cursor'] = next_cur
+        for page_id in page_ids:
+            res = self.page.retrieve_page_property_item(page_id, prop_id).json()
+            print(res)
+            result = res['results'][0]
 
-            json_data = self.database.filter_database(database_id=database_id,
-                                                      body=body).json()
-            for data in json_data['results']:
-                values.append(data['properties'][property_name][property_type][0]['text']['content'])
-
-            if json_data['has_more']:
-                next_cur = json_data['next_cursor']
-            else:
-                break
+            values.append(result[property_type]['text']['content'])
 
         return values
 
@@ -189,6 +177,7 @@ class NotionClient:
         schema = schemas.FilterObject(name=property_name, property_type=property_type)
         body = schema.date_filter_body(method=method, value=value, start_cursor=start_cursor)
         return self.database.filter_database(database_id, body)
+    """
 
     def create_database(self, title_of_database: str,
                         page_id: str,
@@ -204,7 +193,7 @@ class NotionClient:
             ex. {'タイトル':'title', '詳細':'rich_text', 'tags':'multi_select', '期限':'date', 'done!':'checkbox'}
         """
 
-        body: Dict[str, Any] = {
+        body = {
             "parent": {
                 "type": "page_id",
                 "page_id": page_id
@@ -250,10 +239,10 @@ class NotionClient:
             }
         }
 
-        name_and_types = self.database_properties(database_id)
+        properties = self.database_properties(database_id)
         # 整合性のチェック
         error_list = []
-        prop_name_exists = name_and_types.keys()
+        prop_name_exists = properties.keys()
         for prop_name_specified in prop_name_and_value.keys():
             if prop_name_specified not in prop_name_exists:
                 error_list.append(prop_name_specified)
@@ -265,7 +254,7 @@ class NotionClient:
                 f'does not exist in the database')
 
         for name, value in prop_name_and_value.items():
-            prop_type = name_and_types.get(name)
+            prop_type = properties.get(name).get('type')
             obj = schemas.PropertyValueObject(name=name, property_type=prop_type)
             body['properties'].update(obj.property_value(value))
 
@@ -283,9 +272,9 @@ class NotionClient:
             "properties": {
             }
         }
-        name_and_types = self.database_properties(database_id)
+        properties = self.database_properties(database_id)
         for name, value in prop_name_and_value.items():
-            prop_type = name_and_types.get(name)
+            prop_type = properties.get(name).get('type')
             obj = schemas.PropertyValueObject(name=name, property_type=prop_type)
             body['properties'].update(obj.property_value(value))
 

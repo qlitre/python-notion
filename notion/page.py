@@ -16,6 +16,13 @@ class PageAPI:
 
         return self._client.get(end_point)
 
+    def retrieve_page_property_item(self,
+                                    page_id: str,
+                                    property_id: str
+                                    ) -> Response:
+        end_pont = f'/pages/{page_id}/properties/{property_id}'
+        return self._client.get(end_pont)
+
     def create_page(self,
                     body: dict
                     ) -> Response:

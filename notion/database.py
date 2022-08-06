@@ -9,13 +9,6 @@ from requests import Response
 class DatabaseAPI:
     _client: APIClientBase = attr.ib(repr=False)
 
-    """
-    2022-02-02のバージョンより廃止
-    def list_databases(self) -> Response:
-        end_point = '/databases'
-
-        return self._client.get(endpoint=end_point)
-    """
     def retrieve_databases(self,
                            database_id: str
                            ) -> Response:
