@@ -90,8 +90,7 @@ class NotionClient:
         obj_page_list = self.list_database_page_object(database_id)
         return [obj['id'] for obj in obj_page_list]
 
-    def list_database_page_object(self,
-                                  database_id: str) -> list:
+    def list_database_page_object(self, database_id: str) -> list:
         """
         データベースのページオブジェクトをリストにして全て返します
         """
@@ -130,19 +129,19 @@ class NotionClient:
         titles = []
         for page_id in page_ids:
             res = self.page.retrieve_page_property_item(page_id, prop_id).json()
-            result = res['results'][0]
-            titles.append(result['title']['text']['content'])
+            if res['results']:
+                result = res['results'][0]
+                titles.append(result['title']['text']['content'])
 
         return titles
 
-    # todo need fix
-    """
-    #データベースの指定したプロパティの値のリストを返します
     def list_property_values(self,
                              database_id: str,
                              property_name: str
                              ) -> list:
-
+        """
+        データベースの指定したプロパティの値のリストを返します
+        """
         properties = self.database_properties(database_id)
         property_type = properties.get(property_name).get('type')
         approved_property_type = ["title", "rich_text", "url", "email", "phone"]
@@ -155,10 +154,9 @@ class NotionClient:
         values = []
         for page_id in page_ids:
             res = self.page.retrieve_page_property_item(page_id, prop_id).json()
-            print(res)
-            result = res['results'][0]
-
-            values.append(result[property_type]['text']['content'])
+            if res['results']:
+                result = res['results'][0]
+                values.append(result[property_type]['text']['content'])
 
         return values
 
@@ -169,15 +167,14 @@ class NotionClient:
                     value: [str, bool] = None,
                     start_cursor=None
                     ) -> Response:
-        name_and_types = self.database_properties(database_id)
-        property_type = name_and_types.get(property_name)
+        properties = self.database_properties(database_id)
+        property_type = properties.get(property_name).get('type')
         if property_type != 'date':
             raise ValueError(f'Invalid property type you specified :{property_type}.\n '
                              f'Allowed type is only "date"')
         schema = schemas.FilterObject(name=property_name, property_type=property_type)
         body = schema.date_filter_body(method=method, value=value, start_cursor=start_cursor)
         return self.database.filter_database(database_id, body)
-    """
 
     def create_database(self, title_of_database: str,
                         page_id: str,

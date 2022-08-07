@@ -49,16 +49,21 @@ def test_list_titles():
     assert len(list_titles) > 0
 
 
-# todo need fix
-"""
 def test_list_property_values():
-    target_property_names = ["test_text", "test_url", "test_email", "test_phone"]
+    target_property_names = ["test_text", ]
     for property_name in target_property_names:
         list_property_values = client.list_property_values(database_id=test_database_id,
                                                            property_name=property_name)
-        print(list_property_values)
         assert len(list_property_values) > 0
-"""
+
+
+def test_date_filter():
+    res = client.date_filter(test_database_id, property_name='test_date', method='equals', value='2022-08-10')
+    assert res.status_code == 200
+    try:
+        client.date_filter(test_database_id, property_name='test_text', method='equals', value='2022-08-10')
+    except ValueError:
+        assert True
 
 
 def test_create_database():
